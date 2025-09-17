@@ -3,7 +3,6 @@ import 'dotenv/config';
 import { Telegraf, Markup } from 'telegraf';
 import { Low } from 'lowdb';
 import { JSONFile } from 'lowdb/node';
-import { nanoid } from 'nanoid';
 import QRCode from 'qrcode';
 import path from 'path';
 import fs from 'fs';
@@ -48,13 +47,6 @@ const mainKeyboard = Markup.keyboard([
   ['📩 Contact Admin']
 ]).resize();
 
-const adminInline = Markup.inlineKeyboard([
-  [Markup.button.callback('📦 Add Account', 'admin_add')],
-  [Markup.button.callback('✅ Verify Payments', 'admin_verify')],
-  [Markup.button.callback('📊 Stats', 'admin_stats')],
-  [Markup.button.callback('📣 Broadcast', 'admin_broadcast')]
-]);
-
 // -------------------- Motivational Tips --------------------
 const tips = [
   "💡 Tip: Buy accounts now to dominate Twitter! 🚀",
@@ -87,53 +79,109 @@ bot.start(async (ctx) => {
   }
 
   setTimeout(() => {
-    if (ctx.from.id === ADMIN_ID) {
-      ctx.reply("👑 Admin Panel:", adminInline);
-    } else {
-      ctx.reply("🔥 Main Menu:", mainKeyboard);
-      sendMotivationalTip(ctx);
-    }
+    ctx.reply("🔥 Main Menu:", mainKeyboard);
+    sendMotivationalTip(ctx);
   }, welcomeAnimation.length * 600 + 200);
 });
 
-// -------------------- User Reply Buttons --------------------
-bot.hears('🛒 Buy Account', async (ctx) => {
+// -------------------- Handle Buy Account --------------------
+bot.on('text', async (ctx) => {
   const uid = String(ctx.from.id);
   await db.read();
   db.data.users[uid] = db.data.users[uid] || { wallet: 0, totalSpent: 0 };
-  db.data.users[uid].expectingBuyQty = true;
-  await db.write();
-  ctx.reply('🛒 How many Twitter accounts would you like to purchase? Please enter a number.');
+
+  const text = ctx.message.text;
+
+  // Handle expecting buy quantity
+  if (db.data.users[uid].expectingBuyQty) {
+    const qty = parseInt(text);
+    if (isNaN(qty) || qty <= 0) return ctx.reply('❌ Please enter a valid number of accounts.');
+
+    db.data.users[uid].expectingBuyQty = false;
+    await db.write();
+
+    const totalCost = qty * PRICE_PER_ACCOUNT;
+    if ((db.data.users[uid].wallet || 0) < totalCost) {
+      return ctx.reply(`❌ Insufficient balance. You need ₹${totalCost} but have ₹${db.data.users[uid].wallet || 0}.`, mainKeyboard);
+    }
+
+    if ((db.data.stock.length || 0) < qty) return ctx.reply(`❌ Only ${db.data.stock.length} account(s) in stock.`, mainKeyboard);
+
+    // Deduct wallet and send accounts
+    db.data.users[uid].wallet -= totalCost;
+    db.data.users[uid].totalSpent += totalCost;
+
+    let message = `✅ Payment of ₹${totalCost.toFixed(2)} has been deducted from your wallet.\n\nHere are your ${qty} account(s):\n\n`;
+    for (let i = 0; i < qty; i++) {
+      const acc = db.data.stock.shift();
+      message += `Account ${i + 1}:\n\`\`\`\nUSERNAME: ${acc.username}\nPASSWORD: ${acc.password}\nEMAIL: ${acc.email}\n\`\`\`\n\n`;
+    }
+
+    await db.write();
+    ctx.replyWithMarkdownV2(message, mainKeyboard);
+    return;
+  }
+
+  // Handle expecting topup amount
+  if (db.data.users[uid].expectingTopupAmount) {
+    const amount = parseFloat(text);
+    if (isNaN(amount) || amount <= 0) return ctx.reply('❌ Enter a valid amount.');
+
+    db.data.users[uid].expectingTopupAmount = false;
+    const txId = 'TX' + Date.now();
+    db.data.pendingTopup[txId] = { uid, amount, verified: false };
+    await db.write();
+
+    const upiURL = `upi://pay?pa=${UPI_ID}&pn=Twitter Seller Bot&cu=INR&am=${amount}`;
+    const qrPath = path.join(__dirname, `${txId}.png`);
+    await QRCode.toFile(qrPath, upiURL);
+
+    await ctx.replyWithPhoto({ source: fs.createReadStream(qrPath) }, { caption: `💳 Send payment of ₹${amount} to UPI ID ${UPI_ID}\n\n📸 After sending, send the screenshot here.` });
+    fs.unlinkSync(qrPath);
+    return;
+  }
+
+  // Start Buy / Add Funds commands
+  if (text === '🛒 Buy Account') {
+    db.data.users[uid].expectingBuyQty = true;
+    await db.write();
+    return ctx.reply('🛒 How many Twitter accounts would you like to purchase? Please enter a number.');
+  }
+
+  if (text === '💳 Add Funds') {
+    db.data.users[uid].expectingTopupAmount = true;
+    await db.write();
+    return ctx.reply('💳 Enter the amount you want to add to your wallet (e.g., 100)');
+  }
+
+  if (text === '📦 Check Stock') {
+    return ctx.reply(`📦 Current stock: ${db.data.stock.length} account(s) available.`, mainKeyboard);
+  }
+
+  if (text === '💰 Wallet') {
+    return ctx.reply(`💰 Your wallet balance: ₹${(db.data.users[uid].wallet || 0).toFixed(2)}`, mainKeyboard);
+  }
+
+  if (text === '📩 Contact Admin') {
+    return ctx.reply(
+      '📩 Contact the admin:',
+      Markup.inlineKeyboard([[Markup.button.url('Message @SHUBHxAR', 'https://t.me/SHUBHxAR')]])
+    );
+  }
 });
 
-bot.hears('📦 Check Stock', async (ctx) => {
-  await db.read();
-  ctx.reply(`📦 Current stock: ${db.data.stock.length} account(s) available.`, mainKeyboard);
-  sendMotivationalTip(ctx);
-});
-
-bot.hears('💰 Wallet', async (ctx) => {
+// -------------------- Screenshot handling --------------------
+bot.on('photo', async (ctx) => {
   const uid = String(ctx.from.id);
-  await db.read();
-  db.data.users[uid] = db.data.users[uid] || { wallet: 0, totalSpent: 0 };
-  ctx.reply(`💰 Your wallet balance: ₹${(db.data.users[uid].wallet ?? 0).toFixed(2)}`, mainKeyboard);
-  sendMotivationalTip(ctx);
-});
+  if (!db.data.pendingTopup) return;
 
-bot.hears('💳 Add Funds', async (ctx) => {
-  const uid = String(ctx.from.id);
-  await db.read();
-  db.data.users[uid] = db.data.users[uid] || { wallet: 0, totalSpent: 0 };
-  db.data.users[uid].expectingTopupAmount = true;
-  await db.write();
-  ctx.reply('💳 Enter the amount you want to add to your wallet (e.g., 100)');
-});
+  const txEntry = Object.entries(db.data.pendingTopup).find(([txId, tx]) => tx.uid === uid && !tx.verified);
+  if (!txEntry) return ctx.reply('❌ No pending top-up found.');
 
-bot.hears('📩 Contact Admin', async (ctx) => {
-  ctx.reply(
-    '📩 Contact the admin:',
-    Markup.inlineKeyboard([[Markup.button.url('Message @SHUBHxAR', 'https://t.me/SHUBHxAR')]])
-  );
+  const [txId, tx] = txEntry;
+  // Forward to admin
+  await ctx.telegram.forwardMessage(ADMIN_ID, uid, ctx.message.message_id);
+  ctx.reply('✅ Screenshot sent to admin for verification. You will be notified once verified.');
 });
 
 // -------------------- Admin Commands --------------------
@@ -159,14 +207,8 @@ bot.command('broadcast', async (ctx) => {
 
 // -------------------- Express Server + Webhook --------------------
 const app = express();
-
-// Healthcheck for UptimeRobot
 app.get('/', (req, res) => res.send('🟢 Bot is running'));
-
-// Telegraf webhook handler
 app.use(bot.webhookCallback(`/bot${TOKEN}`));
-
-// Start server on Render-provided port
 app.listen(PORT, () => {
   console.log(`🚀 Bot running on port ${PORT}`);
   console.log(`Webhook URL: ${WEBHOOK_URL}/bot${TOKEN}`);
