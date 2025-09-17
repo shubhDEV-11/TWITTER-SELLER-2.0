@@ -186,7 +186,7 @@ bot.on('callback_query', async (ctx) => {
   const data = ctx.callbackQuery.data;
   await db.read();
 
-  if (!ctx.from.id === ADMIN_ID) return ctx.answerCbQuery('❌ Only admin');
+  if (ctx.from.id !== ADMIN_ID) return ctx.answerCbQuery('❌ Only admin');
 
   if (data.startsWith('verify_')) {
     const txId = data.split('_')[1];
@@ -208,53 +208,32 @@ bot.on('callback_query', async (ctx) => {
     const tx = db.data.pendingTopup[txId];
     if (!tx || tx.verified) return ctx.answerCbQuery('❌ Already processed');
 
-    const uid = tx.uid;
     delete db.data.pendingTopup[txId];
     await db.write();
 
-    await ctx.editMessageCaption(`❌ Payment declined.\nUser: ${uid}\nAmount: ₹${tx.amount}`);
-    await bot.telegram.sendMessage(uid, `❌ Your payment of ₹${tx.amount} has been declined. Please try again.`, mainKeyboard);
+    await ctx.editMessageCaption(`❌ Payment declined.\nUser: ${tx.uid}\nAmount: ₹${tx.amount}`);
+    await bot.telegram.sendMessage(tx.uid, `❌ Your payment of ₹${tx.amount} was declined.`, mainKeyboard);
     return ctx.answerCbQuery('❌ Declined');
   }
 });
 
 // -------------------- Admin Commands --------------------
-bot.command('list', async (ctx) => {
+// 1️⃣ Add account
+bot.command('addaccount', async (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return ctx.reply('❌ Only admin');
+
+  const text = ctx.message.text.split(' ').slice(1).join(' ');
+  if (!text) return ctx.reply('❌ Usage: /addaccount username,password,email');
+
+  const [username, password, email] = text.split(',');
+  if (!username || !password || !email) return ctx.reply('❌ Invalid format. Use username,password,email');
+
   await db.read();
-  const users = Object.entries(db.data.users)
-    .map(([id, u]) => `ID: ${id}, Wallet: ₹${(u.wallet ?? 0).toFixed(2)}, Spent: ₹${(u.totalSpent ?? 0).toFixed(2)}`)
-    .join('\n');
-  ctx.reply(`👥 Registered Users:\n\n${users || 'No users yet.'}`);
+  db.data.stock.push({ username: username.trim(), password: password.trim(), email: email.trim() });
+  await db.write();
+
+  ctx.reply(`✅ Account added:\n${username}, ${password}, ${email}`);
 });
 
-bot.command('broadcast', async (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return ctx.reply('❌ Only admin');
-  const msg = ctx.message.text.split(' ').slice(1).join(' ');
-  if (!msg) return ctx.reply('❌ Usage: /broadcast <message>');
-  await db.read();
-  for (const uid of Object.keys(db.data.users)) {
-    try { await bot.telegram.sendMessage(uid, msg); } catch (e) {}
-  }
-  ctx.reply(`✅ Broadcast sent to ${Object.keys(db.data.users).length} users`);
-});
-
-// -------------------- Express Server + Webhook --------------------
-const app = express();
-
-// Healthcheck for UptimeRobot
-app.get('/', (req, res) => res.send('🟢 Bot is running'));
-
-// Telegraf webhook handler
-app.use(bot.webhookCallback(`/bot${TOKEN}`));
-
-// Start server on Render-provided port
-app.listen(PORT, () => {
-  console.log(`🚀 Bot running on port ${PORT}`);
-  console.log(`Webhook URL: ${WEBHOOK_URL}/bot${TOKEN}`);
-});
-
-// Remove this:
-// bot.launch({ webhook: { domain: WEBHOOK_URL, port: PORT, hookPath: `/bot${TOKEN}` } });
-
-
+// 2️⃣ List accounts in stock
+bot.command('listaccounts', async (ctx)
