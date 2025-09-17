@@ -1,0 +1,216 @@
+{
+  "users": {
+    "12345678": {
+      "wallet": 50
+    },
+    "1953766793": {
+      "wallet": 185,
+      "expectingBuyQty": true,
+      "expectingTopupAmount": true,
+      "totalSpent": 5
+    },
+    "8115264855": {
+      "wallet": 95,
+      "expectingBuyQty": true,
+      "expectingTopupAmount": true,
+      "totalSpent": null
+    }
+  },
+  "stock": [],
+  "pendingPurchase": {},
+  "pendingTopup": {
+    "bK2_oIx-": {
+      "txid": "bK2_oIx-",
+      "userId": "1953766793",
+      "amount": 5,
+      "status": "pending",
+      "createdAt": 1758068685333
+    },
+    "6XcQZvSn": {
+      "txid": "6XcQZvSn",
+      "userId": "1953766793",
+      "amount": 100,
+      "status": "pending",
+      "createdAt": 1758068805787
+    }
+  },
+  "transactions": [
+    {
+      "id": "3cGI1OMfGk",
+      "type": "admin_credit",
+      "userId": "1953766793",
+      "amount": 5,
+      "admin": 1953766793,
+      "createdAt": 1758068843946
+    },
+    {
+      "id": "zjfAsA-ksc",
+      "type": "buy",
+      "userId": "1953766793",
+      "qty": 1,
+      "amount": 5,
+      "accounts": [
+        {
+          "id": "a1",
+          "username": "tw_user_001",
+          "password": "pass001",
+          "note": ""
+        }
+      ],
+      "createdAt": 1758068852989
+    },
+    {
+      "txId": "ObkCHvJw",
+      "userId": "1953766793",
+      "amount": 5,
+      "status": "verified",
+      "createdAt": 1758069204098,
+      "verifiedBy": 1953766793,
+      "verifiedAt": 1758069207664
+    },
+    {
+      "id": "Wk6onOzDoF",
+      "type": "buy",
+      "userId": "1953766793",
+      "qty": 1,
+      "amount": 5,
+      "accounts": [
+        {
+          "id": "a2",
+          "username": "tw_user_002",
+          "password": "pass002",
+          "note": ""
+        }
+      ],
+      "createdAt": 1758069217481
+    },
+    {
+      "txId": "zT3fTkjL",
+      "userId": "1953766793",
+      "amount": 10,
+      "status": "verified",
+      "createdAt": 1758069387296,
+      "verifiedBy": 1953766793,
+      "verifiedAt": 1758069397154
+    },
+    {
+      "id": "RNbvScrias",
+      "type": "buy",
+      "userId": "1953766793",
+      "qty": 1,
+      "amount": 5,
+      "accounts": [
+        {
+          "id": "a3",
+          "username": "tw_user_003",
+          "password": "pass003",
+          "note": ""
+        }
+      ],
+      "createdAt": 1758069407374
+    },
+    {
+      "id": "pxKEHrNdZ8",
+      "type": "buy",
+      "userId": "1953766793",
+      "qty": 1,
+      "amount": 5,
+      "accounts": [
+        {
+          "id": "xnpAp7Drl_",
+          "username": "shubh",
+          "password": "1234",
+          "email": "1234@gmail.com",
+          "note": ""
+        }
+      ],
+      "createdAt": 1758069646637
+    },
+    {
+      "txId": "NKB3X-NQ",
+      "userId": "1953766793",
+      "amount": 200,
+      "status": "verified",
+      "createdAt": 1758070018505,
+      "verifiedBy": 1953766793,
+      "verifiedAt": 1758070020414
+    },
+    {
+      "id": "Je5wtuSphh",
+      "type": "buy",
+      "userId": "1953766793",
+      "qty": 1,
+      "amount": 5,
+      "accounts": [
+        {
+          "id": "pCsaSjj0YK",
+          "username": "shubh",
+          "password": "1234",
+          "email": "1234@gmail.com",
+          "note": ""
+        }
+      ],
+      "createdAt": 1758070026318
+    },
+    {
+      "id": "7ymxJsFayx",
+      "type": "buy",
+      "userId": "1953766793",
+      "qty": 1,
+      "amount": 5,
+      "accounts": [
+        {
+          "id": "TlWOyuXYZN",
+          "username": "shubh",
+          "password": "1234",
+          "email": "1234@gmail.com",
+          "note": ""
+        }
+      ],
+      "createdAt": 1758070307439
+    },
+    {
+      "txId": "wDe6V4yA",
+      "userId": "8115264855",
+      "amount": 100,
+      "status": "verified",
+      "createdAt": 1758070621353,
+      "verifiedBy": 1953766793,
+      "verifiedAt": 1758070630732
+    },
+    {
+      "id": "AMXUvL-bYs",
+      "type": "buy",
+      "userId": "8115264855",
+      "qty": 1,
+      "amount": 5,
+      "accounts": [
+        {
+          "id": "D6MEmiAxEJ",
+          "username": "shubh",
+          "password": "1234",
+          "email": "1234@gmail.com",
+          "note": ""
+        }
+      ],
+      "createdAt": 1758070638743
+    },
+    {
+      "id": "2QNZWlJeSp",
+      "type": "buy",
+      "userId": "1953766793",
+      "qty": 1,
+      "amount": 5,
+      "accounts": [
+        {
+          "id": "tmr4hxq1y5",
+          "username": "shubh",
+          "password": "1234",
+          "email": "1234@gmail.com",
+          "note": ""
+        }
+      ],
+      "createdAt": 1758070908016
+    }
+  ]
+}
