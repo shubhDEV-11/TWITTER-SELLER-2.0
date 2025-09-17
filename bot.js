@@ -16,9 +16,11 @@ const TOKEN = process.env.TG_TOKEN;
 const ADMIN_ID = parseInt(process.env.ADMIN_ID || '0', 10);
 const UPI_ID = process.env.UPI_ID || 'shubham4u@fam';
 const PRICE_PER_ACCOUNT = parseFloat(process.env.PRICE_PER_ACCOUNT || '5');
+const PORT = process.env.PORT || 3000;
+const WEBHOOK_URL = process.env.WEBHOOK_URL; // e.g., https://your-render-service.onrender.com
 
-if (!TOKEN || !ADMIN_ID) {
-  console.error('Please set TG_TOKEN and ADMIN_ID in .env');
+if (!TOKEN || !ADMIN_ID || !WEBHOOK_URL) {
+  console.error('Please set TG_TOKEN, ADMIN_ID, and WEBHOOK_URL in .env');
   process.exit(1);
 }
 
@@ -28,7 +30,7 @@ const bot = new Telegraf(TOKEN);
 const file = path.join(__dirname, 'db.json');
 const adapter = new JSONFile(file);
 
-// Provide default data to avoid "missing default data" error
+// Default DB structure
 const defaultData = {
   users: {},
   stock: [],
@@ -234,74 +236,35 @@ bot.on('callback_query', async(ctx)=>{
     tx.status="verified"; tx.verifiedBy=ctx.from.id; tx.verifiedAt=Date.now();
     await db.write();
 
-    ctx.answerCbQuery("✅ Wallet updated!");
-    ctx.editMessageCaption(ctx.callbackQuery.message.caption + "\n\n✅ Payment Verified");
-    ctx.telegram.sendMessage(tx.userId, `✅ Your top-up of ₹${tx.amount} has been verified and added to your wallet.`);
+    ctx.answerCbQuery(`✅ ₹${tx.amount} added to user wallet`);
+    ctx.editMessageCaption(ctx.callbackQuery.message.caption + `\n✅ Verified by Admin`);
+    await bot.telegram.sendMessage(tx.userId, `✅ Your wallet has been credited with ₹${tx.amount}`);
   }
 });
 
 // -------------------- Admin Commands --------------------
-bot.command('addaccount', async(ctx)=>{
-  if(ctx.from.id!==ADMIN_ID) return ctx.reply('❌ Only admin can use this command.');
-  const args = ctx.message.text.split(' ').slice(1).join(' ');
-  if(!args) return ctx.reply('Usage: /addaccount username|password|email|note(optional)');
-  const parts=args.split('|').map(p=>p.trim());
-  const username=parts[0], password=parts[1]||'no-pass', email=parts[2]||'no-email', note=parts[3]||'';
-  await db.read(); db.data.stock.push({ id:nanoid(10), username, password, email, note }); await db.write();
-  return ctx.reply(`✅ Account "${username}" added to stock.`);
-});
-
-bot.command('stock', async(ctx)=>{ if(ctx.from.id!==ADMIN_ID) return ctx.reply('❌ Only admin'); await db.read(); return ctx.reply(`📦 Stock count: ${db.data.stock.length}`); });
-
-// --- BROADCAST ---
-bot.command('broadcast', async(ctx)=>{
+bot.command('list', async(ctx)=>{
   if(ctx.from.id!==ADMIN_ID) return ctx.reply('❌ Only admin');
-  const msg=ctx.message.text.split(' ').slice(1).join(' ');
-  if(!msg) return ctx.reply('Usage: /broadcast <message>');
-  await db.read();
-  const users=Object.keys(db.data.users);
-  let success=0;
-  for(const u of users){
-    try{await bot.telegram.sendMessage(parseInt(u,10), msg); success++;}catch(e){}
-  }
-  return ctx.reply(`📣 Broadcast sent to ${success} users.`);
-});
-
-// --- LIST ---
-bot.command('list', async (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return ctx.reply('❌ Only admin');
   await db.read();
   const users = Object.entries(db.data.users)
-    .map(([id, u]) => {
-      const wallet = u.wallet ?? 0;
-      const spent = u.totalSpent ?? 0;
-      return `ID: ${id}, Wallet: ₹${wallet.toFixed(2)}, Spent: ₹${spent.toFixed(2)}`;
-    })
+    .map(([id,u])=>`ID: ${id}, Wallet: ₹${(u.wallet??0).toFixed(2)}, Spent: ₹${(u.totalSpent??0).toFixed(2)}`)
     .join('\n');
-  return ctx.reply(`👥 Registered Users:\n\n${users || 'No users yet.'}`);
+  ctx.reply(`👥 Registered Users:\n\n${users||'No users yet.'}`);
 });
 
-// --- LEADERBOARD ---
-bot.command('leaderboard', async (ctx) => {
+bot.command('broadcast', async(ctx)=>{
+  if(ctx.from.id!==ADMIN_ID) return ctx.reply('❌ Only admin');
+  const msg = ctx.message.text.split(' ').slice(1).join(' ');
+  if(!msg) return ctx.reply('❌ Usage: /broadcast <message>');
   await db.read();
-  const usersArray = Object.entries(db.data.users)
-    .filter(([id, u]) => (u.totalSpent ?? 0) > 0)
-    .sort((a, b) => (b[1].totalSpent ?? 0) - (a[1].totalSpent ?? 0))
-    .slice(0, 10);
-  if (usersArray.length === 0) return ctx.reply("📊 No purchases yet.");
-  let reply = "🏆 Top Buyers Leaderboard 🏆\n\n";
-  usersArray.forEach(([id, u], i) => {
-    const spent = u.totalSpent ?? 0;
-    reply += `${i + 1}. ${id} — ₹${spent.toFixed(2)} spent\n`;
-  });
-  ctx.reply(reply);
+  for(const uid of Object.keys(db.data.users)){
+    try{ await bot.telegram.sendMessage(uid, msg); } catch(e){}
+  }
+  ctx.reply(`✅ Broadcast sent to ${Object.keys(db.data.users).length} users`);
 });
 
-// -------------------- Fallback --------------------
-bot.on('message', async(ctx)=>ctx.reply('Please use the buttons below to navigate.', mainKeyboard));
+// -------------------- Webhook Launch --------------------
+await bot.telegram.setWebhook(`${WEBHOOK_URL}/bot${TOKEN}`);
+bot.startWebhook(`/bot${TOKEN}`, null, PORT);
 
-// -------------------- Launch --------------------
-bot.launch();
-console.log('🚀 Bot started');
-process.once('SIGINT',()=>bot.stop('SIGINT'));
-process.once('SIGTERM',()=>bot.stop('SIGTERM'));
+console.log(`🚀 Bot started on port ${PORT} using webhook at ${WEBHOOK_URL}/bot${TOKEN}`);
