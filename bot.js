@@ -218,7 +218,7 @@ bot.on('callback_query', async (ctx) => {
 });
 
 // -------------------- Admin Commands --------------------
-// 1️⃣ Add account
+// Add account
 bot.command('addaccount', async (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return ctx.reply('❌ Only admin');
 
@@ -235,5 +235,46 @@ bot.command('addaccount', async (ctx) => {
   ctx.reply(`✅ Account added:\n${username}, ${password}, ${email}`);
 });
 
-// 2️⃣ List accounts in stock
-bot.command('listaccounts', async (ctx)
+// List accounts
+bot.command('listaccounts', async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return ctx.reply('❌ Only admin');
+  await db.read();
+  if (db.data.stock.length === 0) return ctx.reply('📦 Stock is empty');
+  const list = db.data.stock.map((a, i) => `${i + 1}. ${a.username}, ${a.password}, ${a.email}`).join('\n');
+  ctx.reply(`📦 Stock:\n${list}`);
+});
+
+// Broadcast
+bot.command('broadcast', async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return ctx.reply('❌ Only admin');
+  const msg = ctx.message.text.split(' ').slice(1).join(' ');
+  if (!msg) return ctx.reply('❌ Usage: /broadcast <message>');
+  await db.read();
+  let count = 0;
+  for (const uid of Object.keys(db.data.users)) {
+    try { await bot.telegram.sendMessage(uid, msg); count++; } catch (e) {}
+  }
+  ctx.reply(`✅ Broadcast sent to ${count} users`);
+});
+
+// List users
+bot.command('list', async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return ctx.reply('❌ Only admin');
+  await db.read();
+  const users = Object.entries(db.data.users)
+    .map(([id, u]) => `ID: ${id}, Wallet: ₹${(u.wallet || 0).toFixed(2)}, Spent: ₹${(u.totalSpent || 0).toFixed(2)}`)
+    .join('\n');
+  ctx.reply(`👥 Registered Users:\n\n${users || 'No users yet.'}`);
+});
+
+// -------------------- Express Server + Webhook --------------------
+const app = express();
+app.get('/', (req, res) => res.send('🟢 Bot is running'));
+app.use(bot.webhookCallback(`/bot${TOKEN}`));
+
+app.listen(PORT, async () => {
+  console.log(`🚀 Bot running on port ${PORT}`);
+  console.log(`Webhook URL: ${WEBHOOK_URL}/bot${TOKEN}`);
+  // Set webhook
+  await bot.telegram.setWebhook(`${WEBHOOK_URL}/bot${TOKEN}`);
+});
