@@ -254,5 +254,7 @@ app.listen(PORT, () => {
   console.log(`Webhook URL: ${WEBHOOK_URL}/bot${TOKEN}`);
 });
 
-// Launch bot using webhook
-bot.launch({ webhook: { domain: WEBHOOK_URL, port: PORT, hookPath: `/bot${TOKEN}` } });
+// Remove this:
+// bot.launch({ webhook: { domain: WEBHOOK_URL, port: PORT, hookPath: `/bot${TOKEN}` } });
+
+
